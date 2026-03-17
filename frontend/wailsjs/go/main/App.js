@@ -34,6 +34,10 @@ export function GetAutoKillRules() {
   return window['go']['main']['App']['GetAutoKillRules']();
 }
 
+export function GetProcessDetail(arg1) {
+  return window['go']['main']['App']['GetProcessDetail'](arg1);
+}
+
 export function GetProcesses() {
   return window['go']['main']['App']['GetProcesses']();
 }
@@ -52,6 +56,10 @@ export function KillProcesses(arg1) {
 
 export function OpenDownloadPage(arg1) {
   return window['go']['main']['App']['OpenDownloadPage'](arg1);
+}
+
+export function RefreshProcesses() {
+  return window['go']['main']['App']['RefreshProcesses']();
 }
 
 export function RemoveAutoKillRule(arg1) {

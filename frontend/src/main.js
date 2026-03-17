@@ -15,7 +15,9 @@ import {
     TestAutoKillRule,
     GetAppVersion,
     CheckForUpdate,
-    OpenDownloadPage
+    OpenDownloadPage,
+    RefreshProcesses,
+    GetProcessDetail
 } from '../wailsjs/go/main/App';
 
 const avatarColors = [
@@ -81,9 +83,13 @@ function showNotification(title, body) {
     }, 3000);
 }
 
-async function loadProcesses() {
+async function loadProcesses(options = {}) {
     try {
-        processes = await GetProcesses();
+        if (options.force) {
+            processes = await RefreshProcesses();
+        } else {
+            processes = await GetProcesses();
+        }
         renderCurrentView();
     } catch (err) {
         console.error('Failed to load processes:', err);
@@ -420,12 +426,10 @@ function showProcessDetail(process) {
                 </div>
             </div>
         </div>
-        ${process.command ? `
-        <div class="detail-section">
+        <div class="detail-section" id="detailCommandSection" style="display: none;">
             <h4>命令行</h4>
-            <div class="detail-command">${process.command}</div>
+            <div class="detail-command" id="detailCommand"></div>
         </div>
-        ` : ''}
         <div class="detail-actions">
             <button class="btn btn-danger" onclick="window.killProcess(${process.pid}); window.closeDetail();">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -446,6 +450,24 @@ function showProcessDetail(process) {
     `;
     
     panel.classList.add('active');
+
+    loadProcessDetail(process.pid);
+}
+
+async function loadProcessDetail(pid) {
+    try {
+        const detail = await GetProcessDetail(pid);
+        if (!selectedProcess || selectedProcess.pid !== pid) return;
+
+        if (detail && detail.command) {
+            const commandSection = document.getElementById('detailCommandSection');
+            const commandEl = document.getElementById('detailCommand');
+            if (commandEl) commandEl.textContent = detail.command;
+            if (commandSection) commandSection.style.display = 'block';
+        }
+    } catch (err) {
+        console.error('Failed to load process detail:', err);
+    }
 }
 
 async function runAutoKill() {
@@ -547,7 +569,7 @@ window.killSelected = async function() {
 };
 
 window.refreshProcesses = async function() {
-    await loadProcesses();
+    await loadProcesses({ force: true });
     await loadStats();
     const lastRefreshEl = document.getElementById('lastRefresh');
     if (lastRefreshEl) lastRefreshEl.textContent = '刚刚';

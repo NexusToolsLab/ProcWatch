@@ -109,7 +109,14 @@ func (a *App) GetProcesses() []ProcessInfo {
 		a.cacheMutex.RUnlock()
 		return a.cachedProcesses
 	}
+	// 为了减少系统调用，尽量复用上次缓存的 Name/User
+	cached := a.cachedProcesses
 	a.cacheMutex.RUnlock()
+
+	cacheByPID := make(map[int32]ProcessInfo)
+	for _, p := range cached {
+		cacheByPID[p.PID] = p
+	}
 
 	procs, err := process.Processes()
 	if err != nil {
@@ -125,8 +132,15 @@ func (a *App) GetProcesses() []ProcessInfo {
 	for _, p := range procs {
 		info := ProcessInfo{PID: p.Pid}
 
-		if name, err := p.Name(); err == nil {
-			info.Name = name
+		if cachedInfo, ok := cacheByPID[p.Pid]; ok {
+			info.Name = cachedInfo.Name
+			info.User = cachedInfo.User
+		}
+
+		if info.Name == "" {
+			if name, err := p.Name(); err == nil {
+				info.Name = name
+			}
 		}
 
 		times, err := p.Times()
@@ -152,46 +166,26 @@ func (a *App) GetProcesses() []ProcessInfo {
 			info.Memory = float64(mem)
 		}
 
-		if status, err := p.Status(); err == nil {
-			if len(status) > 0 {
-				info.Status = strings.ToLower(string(status[0]))
-				if info.Status == "r" {
-					info.Status = "running"
-				} else {
-					if info.CPU > 5 {
-						info.Status = "running"
-					} else {
-						info.Status = "idle"
-					}
-				}
-			}
+		if info.CPU > 5 {
+			info.Status = "running"
 		} else {
-			if info.CPU > 5 {
-				info.Status = "running"
-			} else {
-				info.Status = "idle"
-			}
+			info.Status = "idle"
 		}
 
-		if username, err := p.Username(); err == nil {
-			parts := strings.Split(username, "\\")
-			if len(parts) > 1 {
-				info.User = parts[len(parts)-1]
-			} else {
-				parts := strings.Split(username, "/")
+		if info.User == "" {
+			username, err := p.Username()
+			if err == nil {
+				parts := strings.Split(username, "\\")
 				if len(parts) > 1 {
 					info.User = parts[len(parts)-1]
 				} else {
-					info.User = username
+					parts := strings.Split(username, "/")
+					if len(parts) > 1 {
+						info.User = parts[len(parts)-1]
+					} else {
+						info.User = username
+					}
 				}
-			}
-		}
-
-		if cmdline, err := p.Cmdline(); err == nil {
-			if len(cmdline) > 100 {
-				info.Command = cmdline[:100] + "..."
-			} else {
-				info.Command = cmdline
 			}
 		}
 
@@ -215,6 +209,65 @@ func (a *App) GetProcesses() []ProcessInfo {
 	a.cacheMutex.Unlock()
 
 	return processes
+}
+
+// RefreshProcesses 强制刷新进程列表（忽略缓存）
+func (a *App) RefreshProcesses() []ProcessInfo {
+	a.cacheMutex.Lock()
+	a.lastCacheTime = time.Time{}
+	a.cacheMutex.Unlock()
+	return a.GetProcesses()
+}
+
+// GetProcessDetail 获取单个进程的详细信息（用于详情面板）
+func (a *App) GetProcessDetail(pid int32) (ProcessInfo, error) {
+	info := ProcessInfo{PID: pid}
+
+	a.cacheMutex.RLock()
+	for _, cached := range a.cachedProcesses {
+		if cached.PID == pid {
+			info = cached
+			break
+		}
+	}
+	a.cacheMutex.RUnlock()
+
+	p, err := process.NewProcess(pid)
+	if err != nil {
+		return info, err
+	}
+
+	if info.Name == "" {
+		if name, err := p.Name(); err == nil {
+			info.Name = name
+		}
+	}
+
+	if info.User == "" {
+		if username, err := p.Username(); err == nil {
+			parts := strings.Split(username, "\\")
+			if len(parts) > 1 {
+				info.User = parts[len(parts)-1]
+			} else {
+				parts := strings.Split(username, "/")
+				if len(parts) > 1 {
+					info.User = parts[len(parts)-1]
+				} else {
+					info.User = username
+				}
+			}
+		}
+	}
+
+	if cmdline, err := p.Cmdline(); err == nil {
+		if len(cmdline) > 200 {
+			info.Command = cmdline[:200] + "..."
+		} else {
+			info.Command = cmdline
+		}
+	}
+
+	return info, nil
 }
 
 func (a *App) GetSystemStats() SystemStats {

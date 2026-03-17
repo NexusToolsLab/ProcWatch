@@ -18,6 +18,8 @@ export function GetAppVersion():Promise<Record<string, string>>;
 
 export function GetAutoKillRules():Promise<Array<main.AutoKillRule>>;
 
+export function GetProcessDetail(arg1:number):Promise<main.ProcessInfo>;
+
 export function GetProcesses():Promise<Array<main.ProcessInfo>>;
 
 export function GetSystemStats():Promise<main.SystemStats>;
@@ -27,6 +29,8 @@ export function KillProcess(arg1:number):Promise<void>;
 export function KillProcesses(arg1:Array<number>):Promise<Record<number, string>>;
 
 export function OpenDownloadPage(arg1:string):Promise<void>;
+
+export function RefreshProcesses():Promise<Array<main.ProcessInfo>>;
 
 export function RemoveAutoKillRule(arg1:string):Promise<boolean>;
 
