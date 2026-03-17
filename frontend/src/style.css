@@ -428,6 +428,42 @@ body {
     background: rgba(255, 107, 53, 0.05);
 }
 
+.settings-cta,
+.about-cta {
+    width: 100%;
+    padding: 10px 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-default);
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 150ms ease;
+}
+
+.settings-cta svg,
+.about-cta svg {
+    width: 14px;
+    height: 14px;
+}
+
+.settings-cta:hover,
+.about-cta:hover {
+    border-color: var(--accent-hot);
+    color: var(--accent-hot);
+    box-shadow: var(--shadow-sm);
+}
+
+.settings-cta {
+    justify-content: flex-start;
+}
+
+
 .content-area {
     flex: 1;
     display: flex;
@@ -493,6 +529,7 @@ body {
     background: rgba(255, 59, 48, 0.15);
     border-color: #FF3B30;
 }
+
 
 .toolbar-spacer {
     flex: 1;
@@ -996,6 +1033,189 @@ body {
     display: flex;
     justify-content: flex-end;
     gap: 10px;
+}
+
+.settings-modal {
+    width: min(560px, 92vw);
+    border-radius: var(--radius-xl);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 251, 252, 0.98));
+}
+
+.about-modal {
+    width: min(520px, 92vw);
+    border-radius: var(--radius-xl);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 251, 252, 0.98));
+}
+
+.settings-title {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.settings-kicker {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--accent-hot);
+}
+
+.settings-body {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.about-body {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.about-card {
+    background: var(--bg-subtle);
+    border-radius: var(--radius-lg);
+    padding: 14px 16px;
+    border: 1px solid var(--border-light);
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.about-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+}
+
+.about-item {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    padding: 12px 14px;
+    box-shadow: var(--shadow-sm);
+}
+
+.about-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+
+.about-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.about-link {
+    font-size: 12px;
+    color: var(--accent-blue);
+    text-decoration: none;
+    word-break: break-all;
+}
+
+.about-link:hover {
+    color: var(--accent-hot);
+}
+
+.settings-card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    box-shadow: var(--shadow-sm);
+}
+
+.settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.settings-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.settings-desc {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+.settings-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--accent-hot);
+    background: rgba(255, 107, 53, 0.1);
+    padding: 4px 10px;
+    border-radius: var(--radius-full);
+    white-space: nowrap;
+}
+
+.settings-range {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.settings-input {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-full);
+    padding: 6px 10px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.settings-input input {
+    width: 46px;
+    border: none;
+    background: transparent;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text-primary);
+    text-align: center;
+}
+
+.settings-input input:focus {
+    outline: none;
+}
+
+.settings-quick {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.quick-btn {
+    padding: 6px 12px;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--border-default);
+    background: var(--bg-subtle);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 150ms ease;
+    font-family: inherit;
+}
+
+.quick-btn:hover {
+    border-color: var(--accent-hot);
+    color: var(--accent-hot);
+    background: rgba(255, 107, 53, 0.08);
 }
 
 .btn-cancel {

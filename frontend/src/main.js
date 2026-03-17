@@ -38,6 +38,8 @@ let autoKillRules = [];
 let selectedProcess = null;
 let autoKillInterval = null;
 let refreshInterval = null;
+let refreshIntervalMs = 5000;
+let autoRefreshEnabled = true;
 let sortField = 'cpu';
 let sortAsc = false;
 let currentPage = 1;
@@ -81,6 +83,56 @@ function showNotification(title, body) {
         notification.classList.add('fade-out');
         setTimeout(() => notification.remove(), 300);
     }, 3000);
+}
+
+function startAutoRefresh() {
+    if (refreshInterval) {
+        clearInterval(refreshInterval);
+        refreshInterval = null;
+    }
+    if (!autoRefreshEnabled) return;
+
+    refreshInterval = setInterval(async () => {
+        await loadProcesses();
+        await loadStats();
+        const lastRefreshEl = document.getElementById('lastRefresh');
+        if (lastRefreshEl) lastRefreshEl.textContent = '刚刚';
+    }, refreshIntervalMs);
+}
+
+function updateRefreshIntervalUI() {
+    const refreshStatus = document.getElementById('refreshIntervalStatus');
+    if (refreshStatus) refreshStatus.textContent = autoRefreshEnabled ? `${Math.round(refreshIntervalMs / 1000)}秒` : '暂停';
+
+    const valueEl = document.getElementById('refreshIntervalValue');
+    if (valueEl) valueEl.textContent = `${Math.round(refreshIntervalMs / 1000)}秒`;
+
+    const sliderEl = document.getElementById('refreshIntervalRange');
+    if (sliderEl) sliderEl.value = String(Math.round(refreshIntervalMs / 1000));
+
+    const inputEl = document.getElementById('refreshIntervalInput');
+    if (inputEl) inputEl.value = String(Math.round(refreshIntervalMs / 1000));
+
+    const fillEl = document.getElementById('refreshIntervalFill');
+    if (fillEl && sliderEl) {
+        const value = Number(sliderEl.value);
+        const max = Number(sliderEl.max || 30);
+        fillEl.style.width = `${(value / max) * 100}%`;
+    }
+}
+
+function syncAutoRefreshToggles() {
+    const sidebarToggle = document.getElementById('autoRefreshToggleSidebar');
+    if (sidebarToggle) sidebarToggle.classList.toggle('active', autoRefreshEnabled);
+}
+
+function persistSettings() {
+    try {
+        localStorage.setItem('procwatch.refreshIntervalMs', String(refreshIntervalMs));
+        localStorage.setItem('procwatch.autoRefreshEnabled', String(autoRefreshEnabled));
+    } catch (err) {
+        console.warn('Failed to persist settings:', err);
+    }
 }
 
 async function loadProcesses(options = {}) {
@@ -575,6 +627,57 @@ window.refreshProcesses = async function() {
     if (lastRefreshEl) lastRefreshEl.textContent = '刚刚';
 };
 
+window.showSettings = function() {
+    const modalEl = document.getElementById('settingsModal');
+    if (modalEl) modalEl.classList.add('active');
+    updateRefreshIntervalUI();
+    syncAutoRefreshToggles();
+};
+
+window.hideSettings = function(e) {
+    if (!e || e.target.id === 'settingsModal') {
+        const modalEl = document.getElementById('settingsModal');
+        if (modalEl) modalEl.classList.remove('active');
+    }
+};
+
+window.toggleAutoRefresh = function() {
+    autoRefreshEnabled = !autoRefreshEnabled;
+    syncAutoRefreshToggles();
+    startAutoRefresh();
+    updateRefreshIntervalUI();
+    persistSettings();
+    if (autoRefreshEnabled) {
+        window.showSettings();
+    }
+};
+
+window.updateRefreshInterval = function(value) {
+    const seconds = Math.max(1, Math.min(Number(value) || 5, 30));
+    refreshIntervalMs = seconds * 1000;
+    startAutoRefresh();
+    updateRefreshIntervalUI();
+    persistSettings();
+};
+
+window.applyRefreshIntervalInput = function() {
+    const inputEl = document.getElementById('refreshIntervalInput');
+    if (!inputEl) return;
+    window.updateRefreshInterval(inputEl.value);
+};
+
+window.showAbout = function() {
+    const modalEl = document.getElementById('aboutModal');
+    if (modalEl) modalEl.classList.add('active');
+};
+
+window.hideAbout = function(e) {
+    if (!e || e.target.id === 'aboutModal') {
+        const modalEl = document.getElementById('aboutModal');
+        if (modalEl) modalEl.classList.remove('active');
+    }
+};
+
 window.updateCpuThreshold = function() {
     const value = document.getElementById('cpuThreshold').value;
     const valueEl = document.getElementById('cpuThresholdValue');
@@ -947,6 +1050,33 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <div class="rules-list" id="rulesList"></div>
                     <button class="add-rule-btn" onclick="window.showModal()">+ 添加规则</button>
                 </section>
+
+                <section class="sidebar-section">
+                    <h2 class="section-title">自动刷新</h2>
+                    <div class="toggle-row">
+                        <span class="toggle-label">自动刷新</span>
+                        <div class="toggle-switch active" id="autoRefreshToggleSidebar" onclick="window.toggleAutoRefresh()"></div>
+                    </div>
+                    <button class="settings-cta" onclick="window.showSettings()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"/>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.02A1.65 1.65 0 0 0 9 4.09V4a2 2 0 1 1 4 0v.09c0 .66.38 1.26 1 1.51a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06c-.44.44-.56 1.1-.33 1.82v.02c.25.62.85 1 1.51 1H21a2 2 0 1 1 0 4h-.09c-.66 0-1.26.38-1.51 1z"/>
+                        </svg>
+                        刷新间隔
+                    </button>
+                </section>
+
+                <section class="sidebar-section">
+                    <h2 class="section-title">关于</h2>
+                    <button class="about-cta" onclick="window.showAbout()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="12" y1="16" x2="12" y2="12"/>
+                            <line x1="12" y1="8" x2="12.01" y2="8"/>
+                        </svg>
+                        了解 ProcWatch
+                    </button>
+                </section>
             </aside>
 
             <main class="content-area">
@@ -1016,7 +1146,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 上次刷新: <span class="status-highlight" id="lastRefresh">刚刚</span>
             </div>
             <div class="status-item">
-                刷新间隔: <span class="status-highlight">5秒</span>
+                刷新间隔: <span class="status-highlight" id="refreshIntervalStatus">5秒</span>
             </div>
             <div class="status-spacer"></div>
             <div class="status-item version-info" onclick="window.checkForUpdate()" title="点击检查更新">
@@ -1040,6 +1170,80 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <div class="loading-spinner"></div>
                         <p>正在检查更新...</p>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 设置弹窗 -->
+        <div class="modal-overlay" id="settingsModal" onclick="window.hideSettings(event)">
+            <div class="modal settings-modal" onclick="event.stopPropagation()">
+                <div class="modal-header">
+                    <div class="settings-title">
+                        <div class="settings-kicker">偏好设置</div>
+                        <h3 class="modal-title">刷新与性能</h3>
+                    </div>
+                    <button class="modal-close" onclick="window.hideSettings()">&times;</button>
+                </div>
+                <div class="modal-body settings-body">
+                    <div class="settings-card">
+                        <div class="settings-row">
+                            <div>
+                                <div class="settings-label">刷新间隔</div>
+                                <div class="settings-desc">1-30 秒，影响 CPU 采样稳定度</div>
+                            </div>
+                            <div class="settings-value" id="refreshIntervalValue">5秒</div>
+                        </div>
+                        <div class="settings-range">
+                            <div class="slider-track">
+                                <div class="slider-fill" id="refreshIntervalFill" style="width: 16.6%"></div>
+                                <input type="range" class="slider-input" id="refreshIntervalRange" min="1" max="30" value="5" oninput="window.updateRefreshInterval(this.value)">
+                            </div>
+                            <div class="settings-input">
+                                <input type="number" min="1" max="30" id="refreshIntervalInput" value="5" onblur="window.applyRefreshIntervalInput()" />
+                                <span>秒</span>
+                            </div>
+                        </div>
+                        <div class="settings-quick">
+                            <button class="quick-btn" onclick="window.updateRefreshInterval(3)">3秒</button>
+                            <button class="quick-btn" onclick="window.updateRefreshInterval(5)">5秒</button>
+                            <button class="quick-btn" onclick="window.updateRefreshInterval(10)">10秒</button>
+                            <button class="quick-btn" onclick="window.updateRefreshInterval(20)">20秒</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-cancel" onclick="window.hideSettings()">关闭</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 关于弹窗 -->
+        <div class="modal-overlay" id="aboutModal" onclick="window.hideAbout(event)">
+            <div class="modal about-modal" onclick="event.stopPropagation()">
+                <div class="modal-header">
+                    <div class="settings-title">
+                        <div class="settings-kicker">ProcWatch</div>
+                        <h3 class="modal-title">轻量进程监控与自动终止工具</h3>
+                    </div>
+                    <button class="modal-close" onclick="window.hideAbout()">&times;</button>
+                </div>
+                <div class="modal-body about-body">
+                    <div class="about-card">
+                        <p>ProcWatch 提供实时进程列表、CPU/内存占用、批量终止与自动终止规则，面向日常排查与轻量运维场景。</p>
+                    </div>
+                    <div class="about-grid">
+                        <div class="about-item">
+                            <div class="about-label">开发者</div>
+                            <div class="about-value">NexusToolsLab</div>
+                        </div>
+                        <div class="about-item">
+                            <div class="about-label">仓库地址</div>
+                            <a class="about-link" href="https://github.com/NexusToolsLab/ProcWatch" target="_blank" rel="noreferrer">github.com/NexusToolsLab/ProcWatch</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-cancel" onclick="window.hideAbout()">关闭</button>
                 </div>
             </div>
         </div>
@@ -1138,17 +1342,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
     
-    refreshInterval = setInterval(async () => {
-        await loadProcesses();
-        await loadStats();
-        const lastRefreshEl = document.getElementById('lastRefresh');
-        if (lastRefreshEl) lastRefreshEl.textContent = '刚刚';
-    }, 5000);
+    try {
+        const storedInterval = Number(localStorage.getItem('procwatch.refreshIntervalMs'));
+        if (!Number.isNaN(storedInterval) && storedInterval >= 1000) {
+            refreshIntervalMs = storedInterval;
+        }
+        const storedAuto = localStorage.getItem('procwatch.autoRefreshEnabled');
+        if (storedAuto === 'false') {
+            autoRefreshEnabled = false;
+        }
+    } catch (err) {
+        console.warn('Failed to read settings:', err);
+    }
+
+    updateRefreshIntervalUI();
+    syncAutoRefreshToggles();
+    startAutoRefresh();
 });
 
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
         window.hideModal();
         window.closeDetail();
+        window.hideSettings();
+        window.hideAbout();
     }
 });
