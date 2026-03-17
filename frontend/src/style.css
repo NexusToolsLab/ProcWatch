@@ -1116,6 +1116,11 @@ body {
     color: var(--accent-blue);
     text-decoration: none;
     word-break: break-all;
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font-family: inherit;
 }
 
 .about-link:hover {

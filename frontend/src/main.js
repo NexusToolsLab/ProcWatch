@@ -45,6 +45,8 @@ let sortAsc = false;
 let currentPage = 1;
 let editingRuleId = null;
 const pageSize = 20;
+let cpuThresholdValue = 0;
+let memoryThresholdValue = 0;
 
 function getCpuClass(cpu) {
     if (cpu >= 50) return 'high';
@@ -130,8 +132,51 @@ function persistSettings() {
     try {
         localStorage.setItem('procwatch.refreshIntervalMs', String(refreshIntervalMs));
         localStorage.setItem('procwatch.autoRefreshEnabled', String(autoRefreshEnabled));
+        localStorage.setItem('procwatch.hideSystem', String(hideSystem));
+        localStorage.setItem('procwatch.showNotifications', String(showNotifications));
+        localStorage.setItem('procwatch.autoKillEnabled', String(autoKillEnabled));
+        localStorage.setItem('procwatch.cpuThreshold', String(cpuThresholdValue));
+        localStorage.setItem('procwatch.memoryThreshold', String(memoryThresholdValue));
+        localStorage.setItem('procwatch.sortField', sortField);
+        localStorage.setItem('procwatch.sortAsc', String(sortAsc));
     } catch (err) {
         console.warn('Failed to persist settings:', err);
+    }
+}
+
+function loadSettingsFromStorage() {
+    try {
+        const storedInterval = Number(localStorage.getItem('procwatch.refreshIntervalMs'));
+        if (!Number.isNaN(storedInterval) && storedInterval >= 1000) {
+            refreshIntervalMs = storedInterval;
+        }
+        const storedAutoRefresh = localStorage.getItem('procwatch.autoRefreshEnabled');
+        if (storedAutoRefresh === 'false') {
+            autoRefreshEnabled = false;
+        }
+
+        const storedHideSystem = localStorage.getItem('procwatch.hideSystem');
+        if (storedHideSystem === 'true') hideSystem = true;
+
+        const storedShowNotifications = localStorage.getItem('procwatch.showNotifications');
+        if (storedShowNotifications === 'false') showNotifications = false;
+
+        const storedAutoKill = localStorage.getItem('procwatch.autoKillEnabled');
+        if (storedAutoKill === 'true') autoKillEnabled = true;
+
+        const storedCpu = Number(localStorage.getItem('procwatch.cpuThreshold'));
+        if (!Number.isNaN(storedCpu)) cpuThresholdValue = storedCpu;
+
+        const storedMem = Number(localStorage.getItem('procwatch.memoryThreshold'));
+        if (!Number.isNaN(storedMem)) memoryThresholdValue = storedMem;
+
+        const storedSortField = localStorage.getItem('procwatch.sortField');
+        if (storedSortField) sortField = storedSortField;
+
+        const storedSortAsc = localStorage.getItem('procwatch.sortAsc');
+        if (storedSortAsc === 'true') sortAsc = true;
+    } catch (err) {
+        console.warn('Failed to read settings:', err);
     }
 }
 
@@ -184,8 +229,8 @@ function isSystemUser(user) {
 }
 
 function getFilteredProcesses() {
-    const cpuThreshold = parseInt(document.getElementById('cpuThreshold')?.value || 0);
-    const memThreshold = parseInt(document.getElementById('memoryThreshold')?.value || 0);
+    const cpuThreshold = cpuThresholdValue;
+    const memThreshold = memoryThresholdValue;
     const searchQuery = document.getElementById('searchInput')?.value?.toLowerCase() || '';
     
     let filtered = processes.filter(p => {
@@ -680,6 +725,7 @@ window.hideAbout = function(e) {
 
 window.updateCpuThreshold = function() {
     const value = document.getElementById('cpuThreshold').value;
+    cpuThresholdValue = parseInt(value || 0);
     const valueEl = document.getElementById('cpuThresholdValue');
     const fillEl = document.getElementById('cpuFill');
     
@@ -687,10 +733,12 @@ window.updateCpuThreshold = function() {
     if (fillEl) fillEl.style.width = value + '%';
     currentPage = 1;
     renderCurrentView();
+    persistSettings();
 };
 
 window.updateMemoryThreshold = function() {
     const value = document.getElementById('memoryThreshold').value;
+    memoryThresholdValue = parseInt(value || 0);
     const valueEl = document.getElementById('memoryThresholdValue');
     const fillEl = document.getElementById('memoryFill');
     
@@ -698,6 +746,7 @@ window.updateMemoryThreshold = function() {
     if (fillEl) fillEl.style.width = value + '%';
     currentPage = 1;
     renderCurrentView();
+    persistSettings();
 };
 
 window.toggleHideSystem = function() {
@@ -706,6 +755,7 @@ window.toggleHideSystem = function() {
     if (toggleEl) toggleEl.classList.toggle('active', hideSystem);
     currentPage = 1;
     renderCurrentView();
+    persistSettings();
 };
 
 window.toggleAutoKill = function() {
@@ -723,12 +773,14 @@ window.toggleAutoKill = function() {
         }
         showNotification('自动终止已禁用', '');
     }
+    persistSettings();
 };
 
 window.toggleNotifications = function() {
     showNotifications = !showNotifications;
     const toggleEl = document.getElementById('showNotificationsToggle');
     if (toggleEl) toggleEl.classList.toggle('active', showNotifications);
+    persistSettings();
 };
 
 window.toggleRuleEnabled = async function(id, enabled) {
@@ -856,6 +908,19 @@ window.removeRule = async function(id) {
     }
 };
 
+function updateSortHeader() {
+    document.querySelectorAll('.process-table th.sortable').forEach(th => {
+        th.classList.remove('sort-asc', 'sort-desc');
+    });
+
+    const headerMap = { name: 1, pid: 2, cpu: 3, memory: 4 };
+    const index = headerMap[sortField];
+    if (index) {
+        const th = document.querySelector(`.process-table th:nth-child(${index + 1})`);
+        if (th) th.classList.add(sortAsc ? 'sort-asc' : 'sort-desc');
+    }
+}
+
 window.sortBy = function(field) {
     if (sortField === field) {
         sortAsc = !sortAsc;
@@ -863,19 +928,9 @@ window.sortBy = function(field) {
         sortField = field;
         sortAsc = false;
     }
-    
-    document.querySelectorAll('.process-table th.sortable').forEach(th => {
-        th.classList.remove('sort-asc', 'sort-desc');
-    });
-    
-    const headerMap = { name: 1, pid: 2, cpu: 3, memory: 4 };
-    const index = headerMap[field];
-    if (index) {
-        const th = document.querySelector(`.process-table th:nth-child(${index + 1})`);
-        if (th) th.classList.add(sortAsc ? 'sort-asc' : 'sort-desc');
-    }
-    
+    updateSortHeader();
     renderCurrentView();
+    persistSettings();
 };
 
 // ========== 自动更新功能 ==========
@@ -975,6 +1030,14 @@ window.downloadUpdate = async function(url) {
     }
 };
 
+window.openExternal = async function(url) {
+    try {
+        await OpenDownloadPage(url);
+    } catch (err) {
+        window.open(url, '_blank');
+    }
+};
+
 document.addEventListener('DOMContentLoaded', async () => {
     document.querySelector('#app').innerHTML = `
         <div class="bg-decoration">
@@ -1057,13 +1120,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <span class="toggle-label">自动刷新</span>
                         <div class="toggle-switch active" id="autoRefreshToggleSidebar" onclick="window.toggleAutoRefresh()"></div>
                     </div>
-                    <button class="settings-cta" onclick="window.showSettings()">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="3"/>
-                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.02A1.65 1.65 0 0 0 9 4.09V4a2 2 0 1 1 4 0v.09c0 .66.38 1.26 1 1.51a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06c-.44.44-.56 1.1-.33 1.82v.02c.25.62.85 1 1.51 1H21a2 2 0 1 1 0 4h-.09c-.66 0-1.26.38-1.51 1z"/>
-                        </svg>
-                        刷新间隔
-                    </button>
                 </section>
 
                 <section class="sidebar-section">
@@ -1234,11 +1290,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <div class="about-grid">
                         <div class="about-item">
                             <div class="about-label">开发者</div>
-                            <div class="about-value">NexusToolsLab</div>
+                            <div class="about-value">NexusToolsLab (<button class="about-link" onclick="window.openExternal('https://github.com/qishenonly')">Godqi</button>)</div>
                         </div>
                         <div class="about-item">
                             <div class="about-label">仓库地址</div>
-                            <a class="about-link" href="https://github.com/NexusToolsLab/ProcWatch" target="_blank" rel="noreferrer">github.com/NexusToolsLab/ProcWatch</a>
+                            <button class="about-link" onclick="window.openExternal('https://github.com/NexusToolsLab/ProcWatch')">github.com/NexusToolsLab/ProcWatch</button>
                         </div>
                     </div>
                 </div>
@@ -1342,17 +1398,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
     
-    try {
-        const storedInterval = Number(localStorage.getItem('procwatch.refreshIntervalMs'));
-        if (!Number.isNaN(storedInterval) && storedInterval >= 1000) {
-            refreshIntervalMs = storedInterval;
-        }
-        const storedAuto = localStorage.getItem('procwatch.autoRefreshEnabled');
-        if (storedAuto === 'false') {
-            autoRefreshEnabled = false;
-        }
-    } catch (err) {
-        console.warn('Failed to read settings:', err);
+    loadSettingsFromStorage();
+
+    const cpuEl = document.getElementById('cpuThreshold');
+    if (cpuEl) cpuEl.value = String(cpuThresholdValue);
+    window.updateCpuThreshold();
+
+    const memEl = document.getElementById('memoryThreshold');
+    if (memEl) memEl.value = String(memoryThresholdValue);
+    window.updateMemoryThreshold();
+
+    updateSortHeader();
+
+    const hideSystemToggle = document.getElementById('hideSystemToggle');
+    if (hideSystemToggle) hideSystemToggle.classList.toggle('active', hideSystem);
+
+    const notificationsToggle = document.getElementById('showNotificationsToggle');
+    if (notificationsToggle) notificationsToggle.classList.toggle('active', showNotifications);
+
+    const autoKillToggle = document.getElementById('autoKillToggle');
+    if (autoKillToggle) autoKillToggle.classList.toggle('active', autoKillEnabled);
+    if (autoKillEnabled) {
+        autoKillInterval = setInterval(runAutoKill, 5000);
     }
 
     updateRefreshIntervalUI();
